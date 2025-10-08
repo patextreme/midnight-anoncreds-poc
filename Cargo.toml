@@ -6,5 +6,7 @@ edition = "2024"
 [dependencies]
 anoncreds = { git = "https://github.com/hyperledger/anoncreds-rs.git", rev = "0e7abd3b0fc2e1e8a2050dea0d436773d026db24" }
 
-anyhow = { version = "1" }
-chrono = { version = "0.4" }
+anyhow             = { version = "1" }
+chrono             = { version = "0.4" }
+tracing            = { version = "0.1" }
+tracing-subscriber = { version = "0.3" }

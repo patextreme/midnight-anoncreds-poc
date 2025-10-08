@@ -1,14 +1,21 @@
 use anoncreds::data_types::cred_def::CredentialDefinitionId;
 use anoncreds::data_types::issuer_id::IssuerId;
+use anoncreds::data_types::presentation::AttributeValue;
 use anoncreds::data_types::rev_reg_def::RevocationRegistryDefinitionId;
 use anoncreds::data_types::schema::SchemaId;
-use anoncreds::issuer;
 use anoncreds::tails::TailsFileWriter;
-use anoncreds::types::{CredentialDefinitionConfig, RegistryType, SignatureType};
+use anoncreds::types::{
+    CredentialDefinitionConfig, CredentialValues, MakeCredentialValues, RegistryType, SignatureType,
+};
+use anoncreds::{issuer, prover};
 use chrono::Utc;
+use tracing_subscriber;
 
 fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+
     let now: u64 = Utc::now().timestamp().try_into()?;
+    tracing::info!("Tracing initialized. Current timestamp: {}", now);
 
     // -------------
     // IDs
@@ -27,8 +34,8 @@ fn main() -> anyhow::Result<()> {
     // -------------
     // credential definition
     // -------------
-    let (cred_def, cred_def_priv, cred_def_correctness) = issuer::create_credential_definition(
-        schema_id,
+    let (cred_def, cred_def_priv, cred_def_correctness_proof) = issuer::create_credential_definition(
+        schema_id.clone(),
         &schema,
         issuer_id,
         "my-cred-def",
@@ -44,16 +51,43 @@ fn main() -> anyhow::Result<()> {
     let mut tw = TailsFileWriter::new(None);
     let (rev_reg_def, rev_reg_def_priv) = issuer::create_revocation_registry_def(
         &cred_def,
-        cred_def_id,
+        cred_def_id.clone(),
         "my-rev-reg",
         RegistryType::CL_ACCUM,
-        2048,
+        128,
         &mut tw,
     )?;
-    let rev_list =
-        issuer::create_revocation_status_list(&cred_def, rev_reg_def_id, &rev_reg_def, &rev_reg_def_priv, true, Some(now))?;
+    let rev_list = issuer::create_revocation_status_list(
+        &cred_def,
+        rev_reg_def_id,
+        &rev_reg_def,
+        &rev_reg_def_priv,
+        true,
+        Some(now),
+    )?;
 
-    println!("{:?}", rev_list);
+    // -------------
+    // credential issuance
+    // -------------
+    let cred_offer = issuer::create_credential_offer(schema_id, cred_def_id, &cred_def_correctness_proof)?;
+
+    let link_secret = prover::create_link_secret()?;
+
+    let (cred_request, cred_request_metadata) =
+        prover::create_credential_request(Some("entropy"), None, &cred_def, &link_secret, "my-secret", &cred_offer)?;
+
+    let mut credential_values = MakeCredentialValues::default();
+    credential_values.add_raw("name", "Alice")?;
+    credential_values.add_raw("age", "21")?;
+
+    let credential = issuer::create_credential(
+        &cred_def,
+        &cred_def_priv,
+        &cred_offer,
+        &cred_request,
+        credential_values.into(),
+        None,
+    )?;
 
     Ok(())
 }
