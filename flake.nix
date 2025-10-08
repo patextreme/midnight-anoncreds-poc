@@ -61,6 +61,7 @@
                 ncurses
                 pkg-config
                 which
+                openssl
                 # rust
                 rust
                 # midnight-js
