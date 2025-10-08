@@ -15,7 +15,7 @@
 
 import { WitnessContext } from "@midnight-ntwrk/compact-runtime";
 
-import { Ledger } from "./managed/did/contract/index.cjs";
+import { Ledger } from "./managed/revreg/contract/index.cjs";
 
 export type MidnightDIDPrivateState = {
   readonly secretKey: Uint8Array;
