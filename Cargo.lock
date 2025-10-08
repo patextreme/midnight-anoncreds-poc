@@ -392,6 +392,7 @@ dependencies = [
  "anoncreds",
  "anyhow",
  "chrono",
+ "serde_json",
  "tracing",
  "tracing-subscriber",
 ]

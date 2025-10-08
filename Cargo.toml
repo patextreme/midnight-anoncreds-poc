@@ -8,5 +8,6 @@ anoncreds = { git = "https://github.com/hyperledger/anoncreds-rs.git", rev = "0e
 
 anyhow             = { version = "1" }
 chrono             = { version = "0.4" }
+serde_json         = { version = "1" }
 tracing            = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }

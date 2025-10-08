@@ -1,11 +1,14 @@
+use std::collections::HashMap;
+
 use anoncreds::data_types::cred_def::CredentialDefinitionId;
 use anoncreds::data_types::issuer_id::IssuerId;
 use anoncreds::data_types::rev_reg_def::RevocationRegistryDefinitionId;
 use anoncreds::data_types::schema::SchemaId;
 use anoncreds::tails::TailsFileWriter;
 use anoncreds::types::*;
-use anoncreds::{issuer, prover};
+use anoncreds::{issuer, prover, verifier};
 use chrono::Utc;
+use serde_json::{from_value, json};
 use tracing_subscriber;
 
 fn main() -> anyhow::Result<()> {
@@ -21,6 +24,9 @@ fn main() -> anyhow::Result<()> {
     let schema_id = SchemaId::new("vdr://schemas/citizen-id?drf=midnight")?;
     let cred_def_id = CredentialDefinitionId::new("vdr://credential-definitions/citizen-id-0001?drf=midnight")?;
     let rev_reg_def_id = RevocationRegistryDefinitionId::new("vdr://revocation-registry-definitions/citizen-id-0001")?;
+    let schema_id_clone = schema_id.clone();
+    let cred_def_id_clone = cred_def_id.clone();
+    let rev_reg_def_id_clone = rev_reg_def_id.clone();
 
     // -------------
     // schema
@@ -66,7 +72,8 @@ fn main() -> anyhow::Result<()> {
     // -------------
     // credential issuance
     // -------------
-    let cred_offer = issuer::create_credential_offer(schema_id, cred_def_id, &cred_def_correctness_proof)?;
+    let cred_offer =
+        issuer::create_credential_offer(schema_id.clone(), cred_def_id.clone(), &cred_def_correctness_proof)?;
 
     let link_secret = prover::create_link_secret()?;
 
@@ -91,7 +98,68 @@ fn main() -> anyhow::Result<()> {
     // -------------
     // presentation
     // -------------
-    // TODO: continue
+
+    // Create proof request
+    let nonce = verifier::generate_nonce()?;
+
+    let pres_req: PresentationRequest = from_value(json!({
+        "nonce": nonce,
+        "name": "Citizen Proof",
+        "version": "1.0",
+        "requested_attributes": {
+            "name_attr": {
+                "name": "name"
+            },
+            "age_attr": {
+                "name": "age"
+            }
+        },
+        "requested_predicates": {}
+    }))?;
+
+    // Prepare maps for prover and verifier
+    let mut schemas = HashMap::new();
+    schemas.insert(schema_id_clone, schema);
+
+    let mut cred_defs = HashMap::new();
+    cred_defs.insert(cred_def_id_clone, cred_def);
+
+    let mut rev_reg_defs_map = HashMap::new();
+    rev_reg_defs_map.insert(rev_reg_def_id_clone, rev_reg_def);
+
+    let rev_status_lists = vec![rev_list];
+
+    // Prover creates presentation
+    let mut presented_credentials = PresentCredentials::default();
+    let mut cred_builder = presented_credentials.add_credential(&credential, None, None);
+    cred_builder.add_requested_attribute("name_attr", true);
+    cred_builder.add_requested_attribute("age_attr", true);
+
+    let presentation = prover::create_presentation(
+        &pres_req,
+        presented_credentials,
+        None,
+        &link_secret,
+        &schemas,
+        &cred_defs,
+    )?;
+
+    // Verifier verifies the presentation
+    let valid = verifier::verify_presentation(
+        &presentation,
+        &pres_req,
+        &schemas,
+        &cred_defs,
+        Some(&rev_reg_defs_map),
+        Some(rev_status_lists),
+        None,
+    )?;
+
+    if valid {
+        tracing::info!("Presentation verified successfully!");
+    } else {
+        tracing::error!("Presentation verification failed!");
+    }
 
     Ok(())
 }
