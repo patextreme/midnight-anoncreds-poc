@@ -1,12 +1,9 @@
 use anoncreds::data_types::cred_def::CredentialDefinitionId;
 use anoncreds::data_types::issuer_id::IssuerId;
-use anoncreds::data_types::presentation::AttributeValue;
 use anoncreds::data_types::rev_reg_def::RevocationRegistryDefinitionId;
 use anoncreds::data_types::schema::SchemaId;
 use anoncreds::tails::TailsFileWriter;
-use anoncreds::types::{
-    CredentialDefinitionConfig, CredentialValues, MakeCredentialValues, RegistryType, SignatureType,
-};
+use anoncreds::types::*;
 use anoncreds::{issuer, prover};
 use chrono::Utc;
 use tracing_subscriber;
@@ -80,7 +77,7 @@ fn main() -> anyhow::Result<()> {
     credential_values.add_raw("name", "Alice")?;
     credential_values.add_raw("age", "21")?;
 
-    let credential = issuer::create_credential(
+    let mut credential = issuer::create_credential(
         &cred_def,
         &cred_def_priv,
         &cred_offer,
@@ -88,6 +85,13 @@ fn main() -> anyhow::Result<()> {
         credential_values.into(),
         None,
     )?;
+
+    prover::process_credential(&mut credential, &cred_request_metadata, &link_secret, &cred_def, None)?;
+
+    // -------------
+    // presentation
+    // -------------
+    // TODO: continue
 
     Ok(())
 }
