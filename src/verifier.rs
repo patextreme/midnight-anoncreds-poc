@@ -9,11 +9,7 @@ use serde_json::json;
 
 use crate::vdr::Vdr;
 
-pub struct Verifier {
-    pub cached_schemas: HashMap<SchemaId, Schema>,
-    pub cached_cred_defs: HashMap<CredentialDefinitionId, CredentialDefinition>,
-    pub cached_rev_reg_defs: HashMap<RevocationRegistryDefinitionId, RevocationRegistryDefinition>,
-}
+pub struct Verifier {}
 
 impl Default for Verifier {
     fn default() -> Self {
@@ -23,11 +19,7 @@ impl Default for Verifier {
 
 impl Verifier {
     pub fn new() -> Self {
-        Self {
-            cached_schemas: HashMap::new(),
-            cached_cred_defs: HashMap::new(),
-            cached_rev_reg_defs: HashMap::new(),
-        }
+        Self {}
     }
 
     pub fn create_presentation_request(&self, name: &str, version: &str) -> anyhow::Result<PresentationRequest> {
@@ -51,90 +43,87 @@ impl Verifier {
             .map_err(|e| anyhow::anyhow!("Failed to create presentation request: {}", e))
     }
 
+    fn fetch_schemas(vdr: &Vdr, presentation: &Presentation) -> anyhow::Result<HashMap<SchemaId, Schema>> {
+        let mut schemas = HashMap::new();
+
+        for identifier in &presentation.identifiers {
+            if let Some(schema) = vdr.get_schema(&identifier.schema_id) {
+                schemas.insert(identifier.schema_id.clone(), schema.clone());
+            } else {
+                return Err(anyhow::anyhow!("Schema not found: {}", identifier.schema_id));
+            }
+        }
+
+        Ok(schemas)
+    }
+
+    fn fetch_credential_definitions(
+        vdr: &Vdr,
+        presentation: &Presentation,
+    ) -> anyhow::Result<HashMap<CredentialDefinitionId, CredentialDefinition>> {
+        let mut cred_defs = HashMap::new();
+
+        for identifier in &presentation.identifiers {
+            if let Some(cred_def) = vdr.get_credential_definition(&identifier.cred_def_id) {
+                if let Ok(cloned_cred_def) = cred_def.try_clone() {
+                    cred_defs.insert(identifier.cred_def_id.clone(), cloned_cred_def);
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "Failed to clone credential definition: {}",
+                        identifier.cred_def_id
+                    ));
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Credential definition not found: {}",
+                    identifier.cred_def_id
+                ));
+            }
+        }
+
+        Ok(cred_defs)
+    }
+
+    fn fetch_revocation_registry_definitions(
+        vdr: &Vdr,
+        presentation: &Presentation,
+    ) -> anyhow::Result<HashMap<RevocationRegistryDefinitionId, RevocationRegistryDefinition>> {
+        let mut rev_reg_defs = HashMap::new();
+
+        for identifier in &presentation.identifiers {
+            if let Some(rev_reg_id) = &identifier.rev_reg_id
+                && let Some(rev_reg_def) = vdr.get_revocation_registry_definition(rev_reg_id)
+            {
+                rev_reg_defs.insert(rev_reg_id.clone(), rev_reg_def.clone());
+            }
+        }
+
+        Ok(rev_reg_defs)
+    }
+
     pub fn verify_presentation(
         &self,
+        vdr: &Vdr,
         presentation: &Presentation,
         pres_req: &PresentationRequest,
     ) -> anyhow::Result<bool> {
-        let rev_reg_defs_map: HashMap<RevocationRegistryDefinitionId, RevocationRegistryDefinition> = self
-            .cached_rev_reg_defs
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
+        let schemas = Self::fetch_schemas(vdr, presentation)?;
+        let cred_defs = Self::fetch_credential_definitions(vdr, presentation)?;
+        let rev_reg_defs = Self::fetch_revocation_registry_definitions(vdr, presentation)?;
         let rev_status_lists: Vec<RevocationStatusList> = Vec::new();
 
         Ok(verifier::verify_presentation(
             presentation,
             pres_req,
-            &self.cached_schemas,
-            &self.cached_cred_defs,
-            Some(&rev_reg_defs_map),
+            &schemas,
+            &cred_defs,
+            if rev_reg_defs.is_empty() {
+                None
+            } else {
+                Some(&rev_reg_defs)
+            },
             Some(rev_status_lists),
             None,
         )?)
-    }
-
-    pub fn fetch_schema_from_vdr(&mut self, vdr: &Vdr, schema_id: &SchemaId) -> Option<&Schema> {
-        if let Some(schema) = vdr.get_schema(schema_id) {
-            self.cached_schemas.insert(schema_id.clone(), schema.clone());
-            Some(self.cached_schemas.get(schema_id).unwrap())
-        } else {
-            None
-        }
-    }
-
-    pub fn fetch_credential_definition_from_vdr(
-        &mut self,
-        vdr: &Vdr,
-        cred_def_id: &CredentialDefinitionId,
-    ) -> Option<&CredentialDefinition> {
-        if let Some(cred_def) = vdr.get_credential_definition(cred_def_id) {
-            if let Ok(cloned_cred_def) = cred_def.try_clone() {
-                self.cached_cred_defs.insert(cred_def_id.clone(), cloned_cred_def);
-                Some(self.cached_cred_defs.get(cred_def_id).unwrap())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    pub fn fetch_revocation_registry_definition_from_vdr(
-        &mut self,
-        vdr: &Vdr,
-        rev_reg_def_id: &RevocationRegistryDefinitionId,
-    ) -> Option<&RevocationRegistryDefinition> {
-        if let Some(rev_reg_def) = vdr.get_revocation_registry_definition(rev_reg_def_id) {
-            self.cached_rev_reg_defs
-                .insert(rev_reg_def_id.clone(), rev_reg_def.clone());
-            Some(self.cached_rev_reg_defs.get(rev_reg_def_id).unwrap())
-        } else {
-            None
-        }
-    }
-
-    pub fn fetch_required_objects_from_vdr(
-        &mut self,
-        vdr: &Vdr,
-        schema_id: &SchemaId,
-        cred_def_id: &CredentialDefinitionId,
-        rev_reg_def_id: &RevocationRegistryDefinitionId,
-    ) -> anyhow::Result<()> {
-        self.fetch_schema_from_vdr(vdr, schema_id)
-            .ok_or_else(|| anyhow::anyhow!("Failed to fetch schema: {}", schema_id))?;
-
-        self.fetch_credential_definition_from_vdr(vdr, cred_def_id)
-            .ok_or_else(|| anyhow::anyhow!("Failed to fetch credential definition: {}", cred_def_id))?;
-
-        self.fetch_revocation_registry_definition_from_vdr(vdr, rev_reg_def_id)
-            .ok_or_else(|| anyhow::anyhow!("Failed to fetch revocation registry definition: {}", rev_reg_def_id))?;
-
-        Ok(())
-    }
-
-    #[allow(dead_code)]
-    pub fn get_cached_rev_reg_defs(&self) -> &HashMap<RevocationRegistryDefinitionId, RevocationRegistryDefinition> {
-        &self.cached_rev_reg_defs
     }
 }

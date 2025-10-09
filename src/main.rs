@@ -23,7 +23,7 @@ fn main() -> anyhow::Result<()> {
     let mut vdr = Vdr::new();
     let mut issuer = Issuer::new("did:midnight:mainnet:abc123")?;
     let mut prover = Prover::new()?;
-    let mut verifier = Verifier::new();
+    let verifier = Verifier::new();
 
     //---------------
     // Flow setup
@@ -37,7 +37,6 @@ fn main() -> anyhow::Result<()> {
     //---------------
     // Issuance
     //---------------
-    // Credential issuance flow
     let offer = issuer.create_credential_offer(&schema_id, &cred_def_id)?;
     let (request, metadata) = prover.create_credential_request(&vdr, &cred_def_id, &offer)?;
 
@@ -48,13 +47,13 @@ fn main() -> anyhow::Result<()> {
     let credential = issuer.issue_credential(&cred_def_id, &offer, &request, credential_values)?;
     prover.process_credential(credential, &metadata, &vdr, &cred_def_id)?;
 
-    // Presentation flow
-    verifier.fetch_required_objects_from_vdr(&vdr, &schema_id, &cred_def_id, &rev_reg_def_id)?;
-
+    //---------------
+    // Presentation
+    //---------------
     let pres_req = verifier.create_presentation_request("Citizen Proof", "1.0")?;
     let presentation = prover.create_presentation(&pres_req, &vdr)?;
 
-    let valid = verifier.verify_presentation(&presentation, &pres_req)?;
+    let valid = verifier.verify_presentation(&vdr, &presentation, &pres_req)?;
 
     if valid {
         tracing::info!("Presentation verified successfully!");
