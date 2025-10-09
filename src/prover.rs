@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anoncreds::data_types::cred_def::CredentialDefinition;
+use anoncreds::data_types::cred_def::CredentialDefinitionId;
 use anoncreds::data_types::rev_reg_def::RevocationRegistryDefinitionId;
 use anoncreds::prover;
 use anoncreds::types::*;
@@ -28,13 +28,19 @@ impl Prover {
 
     pub fn create_credential_request(
         &self,
-        cred_def: &CredentialDefinition,
+        vdr: &Vdr,
+        cred_def_id: &CredentialDefinitionId,
         offer: &CredentialOffer,
     ) -> anyhow::Result<(CredentialRequest, CredentialRequestMetadata)> {
+        let cred_def = vdr
+            .get_credential_definition(cred_def_id)
+            .ok_or_else(|| anyhow::anyhow!("Credential definition not found: {}", cred_def_id))?
+            .try_clone()?;
+
         Ok(prover::create_credential_request(
             Some("entropy"),
             None,
-            cred_def,
+            &cred_def,
             &self.link_secret,
             "my-secret",
             offer,
@@ -45,9 +51,15 @@ impl Prover {
         &mut self,
         mut credential: Credential,
         metadata: &CredentialRequestMetadata,
-        cred_def: &CredentialDefinition,
+        vdr: &Vdr,
+        cred_def_id: &CredentialDefinitionId,
     ) -> anyhow::Result<()> {
-        prover::process_credential(&mut credential, metadata, &self.link_secret, cred_def, None)?;
+        let cred_def = vdr
+            .get_credential_definition(cred_def_id)
+            .ok_or_else(|| anyhow::anyhow!("Credential definition not found: {}", cred_def_id))?
+            .try_clone()?;
+
+        prover::process_credential(&mut credential, metadata, &self.link_secret, &cred_def, None)?;
         self.credentials.push(credential);
         Ok(())
     }

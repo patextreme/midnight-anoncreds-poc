@@ -114,7 +114,24 @@ impl Verifier {
         }
     }
 
-    
+    pub fn fetch_required_objects_from_vdr(
+        &mut self,
+        vdr: &Vdr,
+        schema_id: &SchemaId,
+        cred_def_id: &CredentialDefinitionId,
+        rev_reg_def_id: &RevocationRegistryDefinitionId,
+    ) -> anyhow::Result<()> {
+        self.fetch_schema_from_vdr(vdr, schema_id)
+            .ok_or_else(|| anyhow::anyhow!("Failed to fetch schema: {}", schema_id))?;
+
+        self.fetch_credential_definition_from_vdr(vdr, cred_def_id)
+            .ok_or_else(|| anyhow::anyhow!("Failed to fetch credential definition: {}", cred_def_id))?;
+
+        self.fetch_revocation_registry_definition_from_vdr(vdr, rev_reg_def_id)
+            .ok_or_else(|| anyhow::anyhow!("Failed to fetch revocation registry definition: {}", rev_reg_def_id))?;
+
+        Ok(())
+    }
 
     #[allow(dead_code)]
     pub fn get_cached_rev_reg_defs(&self) -> &HashMap<RevocationRegistryDefinitionId, RevocationRegistryDefinition> {

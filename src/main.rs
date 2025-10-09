@@ -39,20 +39,17 @@ fn main() -> anyhow::Result<()> {
     //---------------
     // Credential issuance flow
     let offer = issuer.create_credential_offer(&schema_id, &cred_def_id)?;
-    let cred_def = vdr.get_credential_definition(&cred_def_id).unwrap().try_clone()?;
-    let (request, metadata) = prover.create_credential_request(&cred_def, &offer)?;
+    let (request, metadata) = prover.create_credential_request(&vdr, &cred_def_id, &offer)?;
 
     let mut credential_values = MakeCredentialValues::default();
     credential_values.add_raw("name", "Alice")?;
     credential_values.add_raw("age", "21")?;
 
     let credential = issuer.issue_credential(&cred_def_id, &offer, &request, credential_values)?;
-    prover.process_credential(credential, &metadata, &cred_def)?;
+    prover.process_credential(credential, &metadata, &vdr, &cred_def_id)?;
 
     // Presentation flow
-    verifier.fetch_schema_from_vdr(&vdr, &schema_id);
-    verifier.fetch_credential_definition_from_vdr(&vdr, &cred_def_id);
-    verifier.fetch_revocation_registry_definition_from_vdr(&vdr, &rev_reg_def_id);
+    verifier.fetch_required_objects_from_vdr(&vdr, &schema_id, &cred_def_id, &rev_reg_def_id)?;
 
     let pres_req = verifier.create_presentation_request("Citizen Proof", "1.0")?;
     let presentation = prover.create_presentation(&pres_req, &vdr)?;
