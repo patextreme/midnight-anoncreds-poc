@@ -16,12 +16,12 @@ fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let now: u64 = Utc::now().timestamp().try_into()?;
-    tracing::info!("Tracing initialized. Current timestamp: {}", now);
+    tracing::info!("Current timestamp: {}", now);
 
     // Initialize VDR and roles
     let mut vdr = Vdr::new();
     let issuer_id = IssuerId::new("did:midnight:mainnet:abc123")?;
-    let mut issuer = Issuer::new(issuer_id)?;
+    let mut issuer = Issuer::new(issuer_id);
     let mut prover = Prover::new()?;
     let mut verifier = Verifier::new();
 

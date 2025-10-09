@@ -22,8 +22,8 @@ pub struct Issuer {
 }
 
 impl Issuer {
-    pub fn new(id: IssuerId) -> anyhow::Result<Self> {
-        Ok(Self {
+    pub fn new(id: IssuerId) -> Self {
+        Self {
             id,
             schemas: HashMap::new(),
             cred_defs: HashMap::new(),
@@ -31,7 +31,7 @@ impl Issuer {
             rev_reg_defs: HashMap::new(),
             rev_status_lists: HashMap::new(),
             tails_writer: TailsFileWriter::new(None),
-        })
+        }
     }
 
     pub fn create_schema(&mut self, name: &str, version: &str, attrs: &[&str]) -> anyhow::Result<SchemaId> {
