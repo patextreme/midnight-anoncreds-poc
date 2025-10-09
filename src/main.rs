@@ -1,14 +1,16 @@
-use std::collections::HashMap;
-
-use anoncreds::data_types::cred_def::CredentialDefinitionId;
 use anoncreds::data_types::issuer_id::IssuerId;
-use anoncreds::data_types::rev_reg_def::RevocationRegistryDefinitionId;
-use anoncreds::data_types::schema::SchemaId;
-use anoncreds::tails::TailsFileWriter;
 use anoncreds::types::*;
-use anoncreds::{issuer, prover, verifier};
 use chrono::Utc;
-use serde_json::{from_value, json};
+
+mod issuer;
+mod prover;
+mod verifier;
+mod vdr;
+
+use issuer::Issuer;
+use prover::Prover;
+use verifier::Verifier;
+use vdr::VDR;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
@@ -16,143 +18,49 @@ fn main() -> anyhow::Result<()> {
     let now: u64 = Utc::now().timestamp().try_into()?;
     tracing::info!("Tracing initialized. Current timestamp: {}", now);
 
-    // -------------
-    // IDs
-    // -------------
+    // Initialize VDR and roles
+    let mut vdr = VDR::new();
     let issuer_id = IssuerId::new("did:midnight:mainnet:abc123")?;
-    let schema_id = SchemaId::new("vdr://schemas/citizen-id?drf=midnight")?;
-    let cred_def_id = CredentialDefinitionId::new("vdr://credential-definitions/citizen-id-0001?drf=midnight")?;
-    let rev_reg_def_id = RevocationRegistryDefinitionId::new("vdr://revocation-registry-definitions/citizen-id-0001")?;
-    let schema_id_clone = schema_id.clone();
-    let cred_def_id_clone = cred_def_id.clone();
-    let rev_reg_def_id_clone = rev_reg_def_id.clone();
+    let mut issuer = Issuer::new(issuer_id)?;
+    let mut prover = Prover::new()?;
+    let mut verifier = Verifier::new();
 
-    // -------------
-    // schema
-    // -------------
-    let schema_attrs: &[&str] = &["name", "age"];
-    let schema = issuer::create_schema("citizen-id", "0.1.0", issuer_id.clone(), schema_attrs.into())?;
+    // Issuer creates and publishes schema
+    let schema_id = issuer.create_schema_and_publish(&mut vdr, "citizen-id", "0.1.0", &["name", "age"])?;
 
-    // -------------
-    // credential definition
-    // -------------
-    let (cred_def, cred_def_priv, cred_def_correctness_proof) = issuer::create_credential_definition(
-        schema_id.clone(),
-        &schema,
-        issuer_id,
-        "my-cred-def",
-        SignatureType::CL,
-        CredentialDefinitionConfig {
-            support_revocation: true,
-        },
-    )?;
+    // Issuer creates and publishes credential definition
+    let cred_def_id = issuer.create_credential_definition_and_publish(&mut vdr, &schema_id, "my-cred-def", true)?;
 
-    // -------------
-    // revocation registry
-    // -------------
-    let mut tw = TailsFileWriter::new(None);
-    let (rev_reg_def, rev_reg_def_priv) = issuer::create_revocation_registry_def(
-        &cred_def,
-        cred_def_id.clone(),
-        "my-rev-reg",
-        RegistryType::CL_ACCUM,
-        128,
-        &mut tw,
-    )?;
-    let rev_list = issuer::create_revocation_status_list(
-        &cred_def,
-        rev_reg_def_id,
-        &rev_reg_def,
-        &rev_reg_def_priv,
-        true,
-        Some(now),
-    )?;
+    // Issuer creates and publishes revocation registry
+    let rev_reg_def_id = issuer.create_revocation_registry_and_publish(&mut vdr, &cred_def_id, "my-rev-reg", 128)?;
 
-    // -------------
-    // credential issuance
-    // -------------
-    let cred_offer =
-        issuer::create_credential_offer(schema_id.clone(), cred_def_id.clone(), &cred_def_correctness_proof)?;
+    // Issuer publishes revocation status list
+    issuer.publish_revocation_status_list(&mut vdr, &rev_reg_def_id, Some(now))?;
 
-    let link_secret = prover::create_link_secret()?;
+    // Prover fetches credential definition from VDR
+    prover.fetch_credential_definition_from_vdr(&vdr, &cred_def_id);
 
-    let (cred_request, cred_request_metadata) =
-        prover::create_credential_request(Some("entropy"), None, &cred_def, &link_secret, "my-secret", &cred_offer)?;
+    // Credential issuance flow
+    let offer = issuer.create_credential_offer(&schema_id, &cred_def_id)?;
+    let cred_def = prover.get_cached_cred_defs().get(&cred_def_id).unwrap().try_clone()?;
+    let (request, metadata) = prover.create_credential_request(&cred_def, &offer)?;
 
     let mut credential_values = MakeCredentialValues::default();
     credential_values.add_raw("name", "Alice")?;
     credential_values.add_raw("age", "21")?;
 
-    let mut credential = issuer::create_credential(
-        &cred_def,
-        &cred_def_priv,
-        &cred_offer,
-        &cred_request,
-        credential_values.into(),
-        None,
-    )?;
+    let credential = issuer.issue_credential(&cred_def_id, &offer, &request, credential_values)?;
+    prover.process_credential(credential, &metadata, &cred_def)?;
 
-    prover::process_credential(&mut credential, &cred_request_metadata, &link_secret, &cred_def, None)?;
+    // Presentation flow
+    verifier.fetch_schema_from_vdr(&vdr, &schema_id);
+    verifier.fetch_credential_definition_from_vdr(&vdr, &cred_def_id);
+    verifier.fetch_revocation_registry_definition_from_vdr(&vdr, &rev_reg_def_id);
 
-    // -------------
-    // presentation
-    // -------------
+    let pres_req = verifier.create_presentation_request("Citizen Proof", "1.0")?;
+    let presentation = prover.create_presentation(&pres_req, verifier.get_cached_schemas(), verifier.get_cached_cred_defs())?;
 
-    // Create proof request
-    let nonce = verifier::generate_nonce()?;
-
-    let pres_req: PresentationRequest = from_value(json!({
-        "nonce": nonce,
-        "name": "Citizen Proof",
-        "version": "1.0",
-        "requested_attributes": {
-            "name_attr": {
-                "name": "name"
-            },
-            "age_attr": {
-                "name": "age"
-            }
-        },
-        "requested_predicates": {}
-    }))?;
-
-    // Prepare maps for prover and verifier
-    let mut schemas = HashMap::new();
-    schemas.insert(schema_id_clone, schema);
-
-    let mut cred_defs = HashMap::new();
-    cred_defs.insert(cred_def_id_clone, cred_def);
-
-    let mut rev_reg_defs_map = HashMap::new();
-    rev_reg_defs_map.insert(rev_reg_def_id_clone, rev_reg_def);
-
-    let rev_status_lists = vec![rev_list];
-
-    // Prover creates presentation
-    let mut presented_credentials = PresentCredentials::default();
-    let mut cred_builder = presented_credentials.add_credential(&credential, None, None);
-    cred_builder.add_requested_attribute("name_attr", true);
-    cred_builder.add_requested_attribute("age_attr", true);
-
-    let presentation = prover::create_presentation(
-        &pres_req,
-        presented_credentials,
-        None,
-        &link_secret,
-        &schemas,
-        &cred_defs,
-    )?;
-
-    // Verifier verifies the presentation
-    let valid = verifier::verify_presentation(
-        &presentation,
-        &pres_req,
-        &schemas,
-        &cred_defs,
-        Some(&rev_reg_defs_map),
-        Some(rev_status_lists),
-        None,
-    )?;
+    let valid = verifier.verify_presentation(&presentation, &pres_req)?;
 
     if valid {
         tracing::info!("Presentation verified successfully!");
