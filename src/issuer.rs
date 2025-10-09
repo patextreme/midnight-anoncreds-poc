@@ -22,16 +22,17 @@ pub struct Issuer {
 }
 
 impl Issuer {
-    pub fn new(id: IssuerId) -> Self {
-        Self {
-            id,
+    pub fn new<T: Into<String>>(id: T) -> anyhow::Result<Self> {
+        let issuer_id = IssuerId::new(id)?;
+        Ok(Self {
+            id: issuer_id,
             schemas: HashMap::new(),
             cred_defs: HashMap::new(),
             correctness_proofs: HashMap::new(),
             rev_reg_defs: HashMap::new(),
             rev_status_lists: HashMap::new(),
             tails_writer: TailsFileWriter::new(None),
-        }
+        })
     }
 
     pub fn create_schema(&mut self, name: &str, version: &str, attrs: &[&str]) -> anyhow::Result<SchemaId> {

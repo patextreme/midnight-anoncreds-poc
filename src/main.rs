@@ -1,4 +1,3 @@
-use anoncreds::data_types::issuer_id::IssuerId;
 use anoncreds::types::*;
 use chrono::Utc;
 
@@ -20,8 +19,7 @@ fn main() -> anyhow::Result<()> {
 
     // Initialize VDR and roles
     let mut vdr = Vdr::new();
-    let issuer_id = IssuerId::new("did:midnight:mainnet:abc123")?;
-    let mut issuer = Issuer::new(issuer_id);
+    let mut issuer = Issuer::new("did:midnight:mainnet:abc123")?;
     let mut prover = Prover::new()?;
     let mut verifier = Verifier::new();
 
