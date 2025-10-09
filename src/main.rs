@@ -4,13 +4,13 @@ use chrono::Utc;
 
 mod issuer;
 mod prover;
-mod verifier;
 mod vdr;
+mod verifier;
 
 use issuer::Issuer;
 use prover::Prover;
+use vdr::Vdr;
 use verifier::Verifier;
-use vdr::VDR;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
@@ -19,7 +19,7 @@ fn main() -> anyhow::Result<()> {
     tracing::info!("Tracing initialized. Current timestamp: {}", now);
 
     // Initialize VDR and roles
-    let mut vdr = VDR::new();
+    let mut vdr = Vdr::new();
     let issuer_id = IssuerId::new("did:midnight:mainnet:abc123")?;
     let mut issuer = Issuer::new(issuer_id)?;
     let mut prover = Prover::new()?;
@@ -58,7 +58,11 @@ fn main() -> anyhow::Result<()> {
     verifier.fetch_revocation_registry_definition_from_vdr(&vdr, &rev_reg_def_id);
 
     let pres_req = verifier.create_presentation_request("Citizen Proof", "1.0")?;
-    let presentation = prover.create_presentation(&pres_req, verifier.get_cached_schemas(), verifier.get_cached_cred_defs())?;
+    let presentation = prover.create_presentation(
+        &pres_req,
+        verifier.get_cached_schemas(),
+        verifier.get_cached_cred_defs(),
+    )?;
 
     let valid = verifier.verify_presentation(&presentation, &pres_req)?;
 
