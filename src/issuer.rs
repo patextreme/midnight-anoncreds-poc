@@ -159,11 +159,11 @@ impl Issuer {
 
     pub fn issue_credential(
         &mut self,
-        cred_def_id: &CredentialDefinitionId,
         offer: &CredentialOffer,
         request: &CredentialRequest,
         values: MakeCredentialValues,
     ) -> anyhow::Result<Credential> {
+        let cred_def_id = &offer.cred_def_id;
         let (cred_def, cred_def_priv) = self
             .cred_defs
             .get(cred_def_id)

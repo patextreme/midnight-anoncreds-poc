@@ -38,13 +38,13 @@ fn main() -> anyhow::Result<()> {
     // Issuance
     //---------------
     let offer = issuer.create_credential_offer(&schema_id, &cred_def_id)?;
-    let (request, metadata) = prover.create_credential_request(&vdr, &cred_def_id, &offer)?;
+    let (request, metadata) = prover.create_credential_request(&vdr, &offer)?;
 
     let mut credential_values = MakeCredentialValues::default();
     credential_values.add_raw("name", "Alice")?;
     credential_values.add_raw("age", "21")?;
 
-    let credential = issuer.issue_credential(&cred_def_id, &offer, &request, credential_values)?;
+    let credential = issuer.issue_credential(&offer, &request, credential_values)?;
     prover.process_credential(credential, &metadata, &vdr, &cred_def_id)?;
 
     //---------------

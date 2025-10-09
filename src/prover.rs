@@ -29,9 +29,9 @@ impl Prover {
     pub fn create_credential_request(
         &self,
         vdr: &Vdr,
-        cred_def_id: &CredentialDefinitionId,
         offer: &CredentialOffer,
     ) -> anyhow::Result<(CredentialRequest, CredentialRequestMetadata)> {
+        let cred_def_id = &offer.cred_def_id;
         let cred_def = vdr
             .get_credential_definition(cred_def_id)
             .ok_or_else(|| anyhow::anyhow!("Credential definition not found: {}", cred_def_id))?
