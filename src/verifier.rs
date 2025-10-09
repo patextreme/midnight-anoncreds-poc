@@ -114,13 +114,7 @@ impl Verifier {
         }
     }
 
-    pub fn get_cached_schemas(&self) -> &HashMap<SchemaId, Schema> {
-        &self.cached_schemas
-    }
-
-    pub fn get_cached_cred_defs(&self) -> &HashMap<CredentialDefinitionId, CredentialDefinition> {
-        &self.cached_cred_defs
-    }
+    
 
     #[allow(dead_code)]
     pub fn get_cached_rev_reg_defs(&self) -> &HashMap<RevocationRegistryDefinitionId, RevocationRegistryDefinition> {
