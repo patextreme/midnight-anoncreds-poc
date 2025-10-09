@@ -9,7 +9,6 @@ use anoncreds::types::*;
 use anoncreds::{issuer, prover, verifier};
 use chrono::Utc;
 use serde_json::{from_value, json};
-use tracing_subscriber;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
