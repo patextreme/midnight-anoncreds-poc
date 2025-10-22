@@ -85,17 +85,20 @@ This replaces the commitment at the specified index with an empty placeholder, e
 
 ### Open Exploration Areas
 
-**Transaction Binding to Presentations:**
+**Transaction Binding to Presentations**
+
 How to properly bind the transaction to the presentation context. Potential approaches include:
 - Holder proving ownership of the wallet making the transaction
 - Including presentation-specific metadata in the transaction
 - Using cryptographic mechanisms to link the proof to specific verification contexts
 
 **Midnight as StatusList Storage**
+
 A simple StatusList implementation might be more efficient and cost-effective with some privacy trade-offs.
 The list can be encoded as sparse entries, making it space-efficient for ledger storage.
 Midnight smart contract primitives should provide good support for this type of storage pattern..
 
 **Using Merkle Trees for Non-Inclusion Proof**
+
 Merkle trees are publicly readable, so with a carefully designed tree structure, verification might not require a transaction to prove an entry's inclusion in the tree.
 This would allow verifiers to use the publicly available tree to perform checks without creating transactions..
