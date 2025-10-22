@@ -49,9 +49,9 @@ The issuer authenticates using their secret key and inserts the commitment into 
 1. **Holder generates non-revocation proof** - Using the `proofNonRevoked` circuit with their commitment secret:
 
 ```compact
-export circuit proofNonRevoked(path: MerkleTreePath<4, Bytes<32>>, commitmentSecret: Bytes<32>): Boolean {
+export circuit proofNonRevoked(path: MerkleTreePath<4, Bytes<32>>, commitmentSecret: Bytes<32>): [] {
     assert(path.leaf == persistentHash<Bytes<32>>(commitmentSecret), "you are not the holder!!!");
-    return credentialCommitment.checkRoot(merkleTreePathRoot<4, Bytes<32>>(disclose(path)));
+    assert(credentialCommitment.checkRoot(merkleTreePathRoot<4, Bytes<32>>(disclose(path))), "the credential is not valid");
 }
 ```
 
