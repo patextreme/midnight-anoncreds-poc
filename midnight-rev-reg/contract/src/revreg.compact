@@ -35,9 +35,9 @@ circuit checkOwner(sk: Bytes<32>): Boolean {
     return true;
 }
 
-export circuit addCredential(sk: Bytes<32>, idx: Uint<64>, handle: Bytes<32>): [] {
+export circuit addCredential(sk: Bytes<32>, idx: Uint<64>, commitment: Bytes<32>): [] {
     checkOwner(sk);
-    credentialCommitment.insertIndex(disclose(handle), disclose(idx));
+    credentialCommitment.insertIndex(disclose(commitment), disclose(idx));
 }
 
 export circuit revokeCredential(sk: Bytes<32>, idx: Uint<64>): [] {
@@ -46,7 +46,7 @@ export circuit revokeCredential(sk: Bytes<32>, idx: Uint<64>): [] {
     credentialCommitment.insertIndex(placeholder, disclose(idx));
 }
 
-export circuit proofNonRevoked(path: MerkleTreePath<4, Bytes<32>>, holderCredentialSecret: Bytes<32>): Boolean {
-    assert(path.leaf == persistentHash<Bytes<32>>(holderCredentialSecret), "you are not holder!!!");
+export circuit proofNonRevoked(path: MerkleTreePath<4, Bytes<32>>, commitmentSecret: Bytes<32>): Boolean {
+    assert(path.leaf == persistentHash<Bytes<32>>(commitmentSecret), "you are not holder!!!");
     return credentialCommitment.checkRoot(merkleTreePathRoot<4, Bytes<32>>(disclose(path)));
 }
