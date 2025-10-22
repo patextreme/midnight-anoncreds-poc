@@ -49,9 +49,9 @@ The issuer authenticates using their secret key and inserts the commitment into 
 1. **Holder generates non-revocation proof** - Using the `proofNonRevoked` circuit with their commitment secret:
 
 ```compact
-export circuit proofNonRevoked(path: MerkleTreePath<4, Bytes<32>>, commitmentSecret: Bytes<32>): Boolean {
+export circuit proofNonRevoked(path: MerkleTreePath<4, Bytes<32>>, commitmentSecret: Bytes<32>): [] {
     assert(path.leaf == persistentHash<Bytes<32>>(commitmentSecret), "you are not the holder!!!");
-    return credentialCommitment.checkRoot(merkleTreePathRoot<4, Bytes<32>>(disclose(path)));
+    assert(credentialCommitment.checkRoot(merkleTreePathRoot<4, Bytes<32>>(disclose(path))), "the credential is not valid");
 }
 ```
 
@@ -85,20 +85,56 @@ This replaces the commitment at the specified index with an empty placeholder, e
 
 ### Open Exploration Areas
 
-**Transaction Binding to Presentations**
+#### Transaction Binding to Presentations
 
 How to properly bind the transaction to the presentation context. Potential approaches include:
 - Holder proving ownership of the wallet making the transaction
 - Including presentation-specific metadata in the transaction
 - Using cryptographic mechanisms to link the proof to specific verification contexts
 
-**Midnight as StatusList Storage**
+#### Midnight as StatusList Storage
 
 A simple StatusList implementation might be more efficient and cost-effective with some privacy trade-offs.
 The list can be encoded as sparse entries, making it space-efficient for ledger storage.
 Midnight smart contract primitives should provide good support for this type of storage pattern.
 
-**Using Merkle Trees for Non-Inclusion Proof**
+#### Using Merkle Trees for Non-Inclusion Proof
 
 Merkle trees are publicly readable, so with a carefully designed tree structure, verification might not require a transaction to prove an entry's inclusion in the tree.
 This would allow verifiers to use the publicly available tree to perform checks without creating transactions.
+
+## Running the POC
+
+This section explains how to run the proof-of-concept demonstration of the anoncreds flow using the Midnight blockchain integration.
+
+### 1. Environment Setup
+
+Enter the nix shell and install dependencies:
+
+```bash
+nix develop
+cd midnight-rev-reg
+npm i
+```
+
+### 2. Running the Contract CLI
+
+Execute the CLI to demonstrate the anoncreds flow:
+
+```bash
+runStandalone
+```
+
+When you run the CLI, you will see an interactive menu:
+
+```
+You can do one of the following:
+  1. Holder: Create a credential commitment
+  2. Issuer: Register a credential
+  3. Issuer: Revoke a credential
+  4. Holder: Run inclusion-proof circuit
+  5. Exit
+Which would you like to do?:
+```
+
+Each option executes the corresponding circuit and displays the output, demonstrating the credential lifecycle in action.
