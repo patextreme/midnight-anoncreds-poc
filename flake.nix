@@ -24,7 +24,7 @@
           })
         ];
         pkgs = import nixpkgs { inherit system overlays; };
-        rust = pkgs.rust-bin.stable.latest.default.override {
+        rust = pkgs.rust-bin.nightly.latest.default.override {
           extensions = [
             "rust-src"
             "rust-analyzer"
@@ -36,22 +36,53 @@
         devShells.default =
           let
             rootDir = "$ROOT_DIR";
-            scripts = {
-              format = pkgs.writeShellScriptBin "format" ''
-                cd ${rootDir}
-                find ${rootDir} | grep '\.nix$' | xargs -I _ bash -c "echo running nixfmt on _ && ${pkgs.nixfmt-rfc-style}/bin/nixfmt _"
-                find ${rootDir} | grep '\.toml$' | xargs -I _ bash -c "echo running taplo on _ && ${pkgs.taplo}/bin/taplo format _"
-                ${rust}/bin/cargo fmt
-              '';
+            scripts = rec {
+              format = pkgs.writeShellApplication {
+                name = "format";
+                runtimeInputs = with pkgs; [
+                  nixfmt
+                  taplo
+                ];
+                text = ''
+                  cd "${rootDir}"
+                  find . | grep '\.nix$' | xargs -I _ bash -c "echo running nixfmt on _ && nixfmt _"
+                  find . | grep '\.toml$' | xargs -I _ bash -c "echo running taplo on _ && taplo format _"
+                  cargo fmt
+                '';
+              };
+              build = pkgs.writeShellApplication {
+                name = "build";
+                text = ''
+                  cd "${rootDir}"
+                  cargo b
+
+                  cd "${rootDir}/midnight-rev-reg/contract"
+                  npm run compact
+                  npm run build
+
+                  cd "${rootDir}/midnight-rev-reg/cli"
+                  npm run build
+                '';
+              };
+              runStandalone = pkgs.writeShellApplication {
+                name = "runStandalone";
+                text = ''
+                  ${build}/bin/build
+                  cd "${rootDir}/midnight-rev-reg/cli"
+                  npm run standalone
+                '';
+              };
             };
           in
           pkgs.mkShell {
             packages =
               (with pkgs; [
                 # base
+                docker
                 git
                 less
                 ncurses
+                openssl
                 pkg-config
                 which
                 # rust

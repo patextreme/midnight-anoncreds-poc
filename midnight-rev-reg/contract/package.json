@@ -1,0 +1,35 @@
+{
+  "name": "@midnight-ntwrk/midnight-revreg-contract",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "contract": "npm run compact",
+    "compact": "compactc src/revreg.compact src/managed/revreg",
+    "test": "vitest run",
+    "test:ci": "vitest run --pool=forks",
+    "test:compile": "npm run compact && vitest run",
+    "prepack": "npm run build",
+    "coverage": "vitest run --coverage",
+    "build": "rm -rf dist && tsc -b tsconfig.build.json --force && mkdir -p dist && cp -Rf ./src/managed ./dist/ && cp ./src/revreg.compact ./dist",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "all": "npm run compact && npm run build && npm run test"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.4"
+  }
+}
