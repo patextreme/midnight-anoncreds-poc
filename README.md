@@ -79,6 +79,9 @@ This replaces the commitment at the specified index with an empty placeholder, e
 
 1. **All proofs are transactions** - Every proof generation requires creating a blockchain transaction, which consumes space and incurs transaction fees, making the approach cost-ineffective for frequent verifications or Merkle tree updates.
 
+**Note**
+This might not hold true once we figure out the Midnight API to do the local proof generation.
+
 2. **Holder computational requirements** - The computational burden on holders can be significant, often requiring the use of Midnight's proof-server infrastructure to handle the complex zero-knowledge proof generation.
 
 3. **Wallet complexity** - Instead of a simple SSI wallet with basic signature capabilities, this approach requires a Midnight wallet with additional key management, increasing the complexity for end users.
