@@ -73,6 +73,16 @@ export circuit revokeCredential(sk: Bytes<32>, idx: Uint<64>): [] {
 
 This replaces the commitment at the specified index with an empty placeholder, effectively revoking the credential.
 
+### Limitations and Drawbacks
+
+1. **All proofs are transactions** - Every proof generation requires creating a blockchain transaction, which consumes space and incurs transaction fees, making the approach costly for frequent verifications.
+
+2. **Holder computation requirements** - The computational burden on holders can be significant, often requiring the use of Midnight's proof-server infrastructure to handle the complex zero-knowledge proof generation.
+
+3. **Wallet complexity** - Instead of a simple SSI wallet with basic signature capabilities, this approach requires a Midnight wallet with additional key management, increasing the complexity for end users.
+
+4. **Deviation from Anoncreds specification** - This implementation uses a custom revocation mechanism that is not compatible with the standard Anoncreds specification, meaning other ecosystem participants cannot verify these proofs using existing tools.
+
 ### Open Exploration Areas
 
 **Transaction Binding to Presentations**
