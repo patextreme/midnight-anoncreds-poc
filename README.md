@@ -24,6 +24,8 @@ The revocation registry smart contract manages credential lifecycle through thre
 
 ### Ledger State
 
+The compact contract can be found in [this compact smart contract](./midnight-rev-reg/contract/src/revreg.compact)
+
 ```compact
 export ledger issuerPublicKey: Bytes<32>;
 export ledger credentialCommitment: MerkleTree<4, Bytes<32>>;
