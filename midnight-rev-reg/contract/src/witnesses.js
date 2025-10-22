@@ -12,20 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-import { WitnessContext } from "@midnight-ntwrk/compact-runtime";
-
-import { Ledger } from "./managed/revreg/contract/index.cjs";
-
-export type RevRegPrivateState = {
-  readonly issuerSecretKey: Uint8Array;
-};
-
 export const witnesses = {
-  issuerSecretKey: ({
-    privateState
-  }: WitnessContext<Ledger, RevRegPrivateState>): [
-      RevRegPrivateState,
-      Uint8Array
-    ] => [privateState, privateState.issuerSecretKey]
+    localSecretKey: ({ privateState }) => [privateState, privateState.secretKey]
 };
+//# sourceMappingURL=witnesses.js.map

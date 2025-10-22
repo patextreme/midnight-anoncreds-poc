@@ -16,28 +16,13 @@
 import { stdin as input, stdout as output } from 'node:process';
 import { createInterface, type Interface } from 'node:readline/promises';
 
-import {
-  createMidnightDIDString,
-  createVerificationMethod,
-  CurveType,
-  DIDOperation,
-  DIDOperationType,
-  KeyType,
-  MidnightDIDString,
-  parseContractAddress,
-  parseDIDURL,
-  parseVerificationMethodRelation,
-  VerificationMethod,
-  VerificationMethodRelation,
-  VerificationMethodType,
-} from '@midnight-ntwrk/midnight-did-contract';
 import { type Resource } from '@midnight-ntwrk/wallet';
 import { type Wallet } from '@midnight-ntwrk/wallet-api';
 import { type Logger } from 'pino';
 import { type DockerComposeEnvironment, type StartedDockerComposeEnvironment } from 'testcontainers';
 
 import * as api from './api';
-import { type DeployedMidnightDIDContract, type MidnightDIDProviders } from './common-types';
+import { type MidnightRevRegProviders } from './common-types';
 import { type Config, StandaloneConfig } from './config';
 
 let logger: Logger;
@@ -50,35 +35,43 @@ const GENESIS_MINT_WALLET_SEED = '0000000000000000000000000000000000000000000000
 
 const MAIN_LOOP_QUESTIONS = `
 You can do one of the following:
-  1. Create the MidnightDID
-  2. Resolve the MidnightDID
-  3. Update the existing MidnightDID
-  4. Exit
-Which would you like to do?`;
+  1. Holder: Create a credential commitment
+  2. Issuer: Register a credential
+  3. Issuer: Revoke a credential
+  4. Holder: Run inclusion-proof circuit
+  5. Exit
+Which would you like to do?: `;
 
-const mainLoop = async (providers: MidnightDIDProviders, rli: Interface): Promise<void> => {
+const mainLoop = async (providers: MidnightRevRegProviders, rli: Interface): Promise<void> => {
+  const privateState = await api.initPrivateState(providers);
+  const deployedContract = await api.createRevReg(providers, privateState);
+  const contractAddress = deployedContract.deployTxData.public.contractAddress;
   while (true) {
     const choice = await rli.question(MAIN_LOOP_QUESTIONS);
     switch (choice) {
       case '1': {
-        const privateState = await api.initPrivateState(providers);
-        await api.createDID(providers, privateState);
-        logger.info('DID created successfully.');
+        const passphrase = await rli.question("Please enter credential passphrase: ");
+        await api.generateCommitment(passphrase);
         break;
       }
       case '2': {
-        const contract = await findContractByAddress(providers, rli);
-        const didDocument = await api.resolve(providers, contract);
-        if (didDocument != null) logger.info('DID resolved successfully.');
-        else logger.error('Failed to resolve the DID...');
+        const handle = await rli.question("Please enter credential commitment: ");
+        await api.addCredential(providers, contractAddress, privateState.issuerSecretKey, handle);
+        logger.info('Added credential successfully.');
         break;
       }
       case '3': {
-        const contract = await findContractByAddress(providers, rli);
-        await updateDIDLoop(providers, rli, contract);
+        const idx = BigInt(await rli.question("Please enter index to revoke: "));
+        await api.revokeCredential(providers, contractAddress, privateState.issuerSecretKey, idx);
+        logger.info('Revoked credential successfully.');
         break;
       }
-      case '4':
+      case '4': {
+        const passphrase = await rli.question("Please enter credential passphrase: ");
+        await api.runProofCircuit(providers, contractAddress, passphrase);
+        break;
+      }
+      case '5':
         logger.info('Exiting...');
         return;
       default:
@@ -87,121 +80,6 @@ const mainLoop = async (providers: MidnightDIDProviders, rli: Interface): Promis
     }
   }
 };
-
-const UPDATE_DID_QUESTIONS = `
-You can do one of the following actions to update the DID:
-  1. Add Verification Method
-  2. Add Verification Relation
-  3. Publish Patches
-  4. Exit
-Which would you like to do? `;
-
-const updateDIDLoop = async (
-  providers: MidnightDIDProviders,
-  rli: Interface,
-  contract: DeployedMidnightDIDContract,
-): Promise<void> => {
-  let pendingOperations: DIDOperation[] = [];
-  const contractAddress = parseContractAddress(contract.deployTxData.public.contractAddress);
-  const didStr = createMidnightDIDString(contractAddress, api.midnightNetwork);
-
-  while (true) {
-    const choice = await rli.question(UPDATE_DID_QUESTIONS);
-    switch (choice) {
-      case '1': {
-        const verificationMethod = await promptForVerificationMethod(rli, didStr);
-        if (verificationMethod == null) {
-          logger.error('Invalid verification method input...');
-        } else {
-          pendingOperations.push({
-            type: DIDOperationType.AddVerificationMethod,
-            verificationMethod: verificationMethod,
-          });
-          logger.info('Verification method operation added to pending patches.');
-        }
-        break;
-      }
-      case '2': {
-        const verificationMethodRelation = await promptForVerificationMethodRelation(rli);
-        const methodId = await promptForVerificationMethodId(rli);
-
-        if (verificationMethodRelation === null || methodId === null) {
-          logger.error('Invalid input for verification method relation or id...');
-        } else {
-          pendingOperations.push({
-            type: DIDOperationType.AddVerificationMethodRelation,
-            methodId: methodId,
-            relation: verificationMethodRelation,
-          });
-          logger.info('Verification relation operation added to pending patches.');
-        }
-        break;
-      }
-      case '3': {
-        if (pendingOperations.length === 0) {
-          logger.warn('No pending patches to publish. Please add operations first.');
-        } else {
-          try {
-            await api.update(contract, pendingOperations);
-            logger.info('Published patches to the DID contract successfully.');
-            pendingOperations = [];
-          } catch (e) {
-            logger.error(`Failed to publish patches: ${e instanceof Error ? e.message : e}`);
-          }
-        }
-        break;
-      }
-      case '4': {
-        logger.info('Returning to main menu...');
-        return;
-      }
-      default:
-        logger.error(`Invalid choice: ${choice}`);
-        break;
-    }
-  }
-};
-
-async function promptForVerificationMethod(rli: Interface, did: MidnightDIDString): Promise<VerificationMethod | null> {
-  const id = await rli.question('Enter Verification Method id: ');
-  let verificationMethodId = `${did}#${id.trim()}`;
-
-  const verificationMethodTypeInput = await rli.question(`
-Enter Verification Method type:'
- 1. ${VerificationMethodType.JsonWebKey}
-`);
-
-  let verificationMethodType: VerificationMethodType = VerificationMethodType.Undefined;
-  switch (verificationMethodTypeInput) {
-    case '1':
-      verificationMethodType = VerificationMethodType.JsonWebKey;
-      break;
-  }
-
-  return createVerificationMethod({
-    id: verificationMethodId,
-    type: verificationMethodType,
-    controller: did,
-    publicKeyJwk: {
-      kty: KeyType.EC,
-      crv: CurveType.ed25519,
-      x: 0n,
-      y: 0n,
-    },
-  });
-}
-
-async function promptForVerificationMethodRelation(rli: Interface): Promise<VerificationMethodRelation | null> {
-  const relationTypeInput = await rli.question('Enter relationType: ');
-  let verificationRelationType = parseVerificationMethodRelation(relationTypeInput.trim());
-  return verificationRelationType;
-}
-
-async function promptForVerificationMethodId(rli: Interface): Promise<string | null> {
-  const methodIdInput = await rli.question('Enter methodId for relation: ');
-  let methodId = parseDIDURL(methodIdInput.trim()); //did:midnight:mainnet:asdfg..asd#auth-0
-  return methodId;
-}
 
 const buildWalletFromSeed = async (config: Config, rli: Interface): Promise<Wallet & Resource> => {
   const seed = await rli.question('Enter your wallet seed: ');
@@ -299,8 +177,4 @@ export const run = async (config: Config, _logger: Logger, dockerEnv?: DockerCom
     }
   }
 };
-async function findContractByAddress(providers: MidnightDIDProviders, rli: Interface) {
-  const constractAddress: string = await rli.question(`Enter the MidnightDID contract address:`);
-  const contract = await api.joinContract(providers, constractAddress);
-  return contract;
-}
+

@@ -13,13 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from "./did-document";
-export * from "./did-operations";
-export * from "./did-registrar";
-export * from "./did-resolver";
-export * from "./domain-to-ledger";
-export * from "./ledger-operation-builder";
-export * from "./ledger-to-domain";
-export * as DIDContract from "./managed/did/contract/index.cjs";
-export * from "./midnight-did";
+export * as RevRegContract from "./managed/revreg/contract/index.cjs";
 export * from "./witnesses";

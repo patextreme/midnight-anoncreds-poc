@@ -13,28 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { NetworkId } from '@midnight-ntwrk/ledger';
-import { DIDContract, type MidnightDIDPrivateState, MidnightNetwork } from '@midnight-ntwrk/midnight-did-contract';
+import { RevRegContract, type RevRegPrivateState } from '@midnight-ntwrk/midnight-revreg-contract';
 import type { DeployedContract, FoundContract } from '@midnight-ntwrk/midnight-js-contracts';
 import type { ImpureCircuitId, MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
 
-export type MidnightDIDCircuits = ImpureCircuitId<DIDContract.Contract<MidnightDIDPrivateState>>;
+export type MidnightRevRegCircuits = ImpureCircuitId<RevRegContract.Contract<RevRegPrivateState>>;
 
-export const MidnightDIDPrivateStateId = 'midnightDIDPrivateState';
+export const MidnightRefRegPrivateStateId = 'midnightRevRegPrivateState';
 
-export type MidnightDIDProviders = MidnightProviders<
-  MidnightDIDCircuits,
-  typeof MidnightDIDPrivateStateId,
-  MidnightDIDPrivateState
+export type MidnightRevRegProviders = MidnightProviders<
+  MidnightRevRegCircuits,
+  typeof MidnightRefRegPrivateStateId,
+  RevRegPrivateState
 >;
 
-export type MidnightDIDContract = DIDContract.Contract<MidnightDIDPrivateState>;
+export type MidnightRevRegContract = RevRegContract.Contract<RevRegPrivateState>;
 
-export type DeployedMidnightDIDContract = DeployedContract<MidnightDIDContract> | FoundContract<MidnightDIDContract>;
-
-export const NetworkMapping: Record<NetworkId, MidnightNetwork> = {
-  [NetworkId.Undeployed]: MidnightNetwork.Undeployed,
-  [NetworkId.DevNet]: MidnightNetwork.DevNet,
-  [NetworkId.TestNet]: MidnightNetwork.Testnet,
-  [NetworkId.MainNet]: MidnightNetwork.Mainnet,
-};
+export type DeployedMidnightRevRegContract = DeployedContract<MidnightRevRegContract> | FoundContract<MidnightRevRegContract>;

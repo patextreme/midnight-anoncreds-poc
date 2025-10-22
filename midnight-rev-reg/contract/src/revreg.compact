@@ -17,25 +17,36 @@ pragma language_version 0.16;
 
 import CompactStandardLibrary;
 
-export ledger contractVersion: Uint<32>;
-export ledger controllerPublicKey: Bytes<32>;
-export ledger active: Boolean;
-export ledger revocationList: MerkleTree<10, Bytes<32>>;
+witness issuerSecretKey(): Bytes<32>;
 
-witness localSecretKey(): Bytes<32>;
+export ledger issuerPublicKey: Bytes<32>;
+export ledger credentialCommitment: MerkleTree<4, Bytes<32>>;
 
 constructor() {
-  contractVersion = 1;
-  active = true;
-  controllerPublicKey = disclose(publicKey(localSecretKey()));
+  issuerPublicKey = disclose(publicKey(issuerSecretKey()));
 }
 
 circuit publicKey(sk: Bytes<32>): Bytes<32> {
-    return persistentHash<Vector<2, Bytes<32>>>([pad(32, "did:controller:pk"), sk]);
+    return persistentHash<Vector<2, Bytes<32>>>([pad(32, "issuer"), sk]);
 }
 
-export circuit checkOwner(sk: Bytes<32>): Boolean {
-    assert(controllerPublicKey == publicKey(localSecretKey()), "you are not owner of this contract");
+circuit checkOwner(sk: Bytes<32>): Boolean {
+    assert(issuerPublicKey == publicKey(issuerSecretKey()), "you are not owner of this contract");
     return true;
 }
 
+export circuit addCredential(sk: Bytes<32>, idx: Uint<64>, handle: Bytes<32>): [] {
+    checkOwner(sk);
+    credentialCommitment.insertIndex(disclose(handle), disclose(idx));
+}
+
+export circuit revokeCredential(sk: Bytes<32>, idx: Uint<64>): [] {
+    checkOwner(sk);
+    const placeholder = pad(32, "");
+    credentialCommitment.insertIndex(placeholder, disclose(idx));
+}
+
+export circuit proofNonRevoked(path: MerkleTreePath<4, Bytes<32>>, holderCredentialSecret: Bytes<32>): Boolean {
+    assert(path.leaf == persistentHash<Bytes<32>>(holderCredentialSecret), "you are not holder!!!");
+    return credentialCommitment.checkRoot(merkleTreePathRoot<4, Bytes<32>>(disclose(path)));
+}

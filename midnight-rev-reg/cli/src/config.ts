@@ -20,7 +20,7 @@ export const currentDir = path.resolve(new URL(import.meta.url).pathname, '..');
 
 export const contractConfig = {
   privateStateStoreName: 'did-private-state',
-  zkConfigPath: path.resolve(currentDir, '..', '..', 'contract', 'src', 'managed', 'did'),
+  zkConfigPath: path.resolve(currentDir, '..', '..', 'contract', 'src', 'managed', 'revreg'),
 };
 
 export interface Config {
