@@ -4,11 +4,11 @@ A proof-of-concept implementation that integrates Midnight blockchain as a Verif
 
 ## Overview
 
-This project explores the integration of Midnight blockchain with Hyperledger Anoncreds to provide a VDR layer for anoncreds credential-management system.
+This project explores the integration of Midnight blockchain with Hyperledger Anoncreds to provide a VDR layer for anoncreds credential management systems.
 
 ### Midnight as VDR Integration Options
 
-There are multiple integration options to use Midnight network as a VDR layer in anoncreds ecosystem.
+There are multiple integration options to use Midnight network as a VDR layer in the anoncreds ecosystem.
 
 1. **Midnight VDR Storage** - Direct storage of anoncreds objects (schemas, credential definitions, revocation registries) in the ledger state using smart contracts
 
@@ -16,7 +16,7 @@ There are multiple integration options to use Midnight network as a VDR layer in
 
 3. **Midnight as ZKP Revocation Mechanism** - Leveraging Midnight's native ZKP capabilities to handle non-revocation proofs, offering an alternative to traditional accumulator-based revocation
 
-This POC specifically focuses on **Option 3**, utilizing the built-in Merkle tree to generate inclusion proofs
+This POC specifically focuses on **Option 3**, utilizing the built-in Merkle tree to generate inclusion proofs.
 
 ## Credential Flow
 
@@ -50,7 +50,7 @@ The issuer authenticates using their secret key and inserts the commitment into 
 
 ```compact
 export circuit proofNonRevoked(path: MerkleTreePath<4, Bytes<32>>, commitmentSecret: Bytes<32>): Boolean {
-    assert(path.leaf == persistentHash<Bytes<32>>(commitmentSecret), "you are not holder!!!");
+    assert(path.leaf == persistentHash<Bytes<32>>(commitmentSecret), "you are not the holder!!!");
     return credentialCommitment.checkRoot(merkleTreePathRoot<4, Bytes<32>>(disclose(path)));
 }
 ```
@@ -75,18 +75,27 @@ This replaces the commitment at the specified index with an empty placeholder, e
 
 ### Limitations and Drawbacks
 
-1. **All proofs are transactions** - Every proof generation requires creating a blockchain transaction, which consumes space and incurs transaction fees, making the approach costly for frequent verifications.
+1. **All proofs are transactions** - Every proof generation requires creating a blockchain transaction, which consumes space and incurs transaction fees, making the approach cost-ineffective for frequent verifications or Merkle tree updates..
 
-2. **Holder computation requirements** - The computational burden on holders can be significant, often requiring the use of Midnight's proof-server infrastructure to handle the complex zero-knowledge proof generation.
+2. **Holder computational requirements** - The computational burden on holders can be significant, often requiring the use of Midnight's proof-server infrastructure to handle the complex zero-knowledge proof generation..
 
 3. **Wallet complexity** - Instead of a simple SSI wallet with basic signature capabilities, this approach requires a Midnight wallet with additional key management, increasing the complexity for end users.
 
-4. **Deviation from Anoncreds specification** - This implementation uses a custom revocation mechanism that is not compatible with the standard Anoncreds specification, meaning other ecosystem participants cannot verify these proofs using existing tools.
+4. **Deviation from Anoncreds specification** - This implementation uses a custom revocation mechanism that is not compatible with the standard Anoncreds specification, meaning other ecosystem participants cannot verify these proofs using existing tools..
 
 ### Open Exploration Areas
 
-**Transaction Binding to Presentations**
+**Transaction Binding to Presentations:**
 How to properly bind the transaction to the presentation context. Potential approaches include:
 - Holder proving ownership of the wallet making the transaction
 - Including presentation-specific metadata in the transaction
 - Using cryptographic mechanisms to link the proof to specific verification contexts
+
+**Midnight as StatusList Storage**
+A simple StatusList implementation might be more efficient and cost-effective with some privacy trade-offs.
+The list can be encoded as sparse entries, making it space-efficient for ledger storage.
+Midnight smart contract primitives should provide good support for this type of storage pattern..
+
+**Using Merkle Trees for Non-Inclusion Proof**
+Merkle trees are publicly readable, so with a carefully designed tree structure, verification might not require a transaction to prove an entry's inclusion in the tree.
+This would allow verifiers to use the publicly available tree to perform checks without creating transactions..

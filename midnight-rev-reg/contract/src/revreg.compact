@@ -47,6 +47,6 @@ export circuit revokeCredential(sk: Bytes<32>, idx: Uint<64>): [] {
 }
 
 export circuit proofNonRevoked(path: MerkleTreePath<4, Bytes<32>>, commitmentSecret: Bytes<32>): Boolean {
-    assert(path.leaf == persistentHash<Bytes<32>>(commitmentSecret), "you are not holder!!!");
+    assert(path.leaf == persistentHash<Bytes<32>>(commitmentSecret), "you are not the holder!!!");
     return credentialCommitment.checkRoot(merkleTreePathRoot<4, Bytes<32>>(disclose(path)));
 }
